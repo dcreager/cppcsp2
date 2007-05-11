@@ -1,0 +1,687 @@
+\documentclass{article}
+
+\newcommand{\occam}{occam}
+\newcommand{\occampi}{occam-$\pi$}
+\newcommand{\csharp}{C\#}
+\newcommand{\code}[1]{{\small\texttt{#1}}}
+\newcommand{\comment}[1]{}
+
+\begin{document}
+
+\section{Poison Problem \#1 -- Sputh's bug}
+
+Given:
+
+{\small\begin{verbatim}
+    One2OneChannel<int> c;
+\end{verbatim}}
+
+Consider running:
+
+{\small\begin{verbatim}
+    c.writer() << 7;
+    c.writer().poison();
+\end{verbatim}}
+
+In parallel with:
+
+{\small\begin{verbatim}
+    int n;
+    c.reader() >> n;
+\end{verbatim}}
+
+The latter code should never have a poison exception thrown.
+
+\section{Poison Problem \#2 -- Destruction}
+
+Given:
+
+{\small\begin{verbatim}
+    One2OneChannel< pair< int, Chanout<int> > > c;
+\end{verbatim}}
+
+Consider running:
+
+{\small\begin{verbatim}
+    {
+        One2OneChannel<int> reply;
+        int n;
+        c.writer() << pair(7,reply.writer());
+        reply.reader() >> n;
+    }
+\end{verbatim}}
+
+In parallel with:
+
+{\small\begin{verbatim}
+    pair< int, Chanout<int> > p;
+    c.reader() >> p;
+    p.second << (p.first + 1);
+\end{verbatim}}
+
+Under the current code, and the `new mutex' solution, this code can crash (depending upon the scheduler, and compiler).  Under the state variable
+solution, it will not crash.
+
+
+\section{Original C++CSP2 Channel Code}
+
+{\small\begin{verbatim}
+    Process* volatile waiting;
+    union {
+        const DATA_TYPE* volatile src;
+        DATA_TYPE* volatile dest;
+    };
+    volatile bool isPoisoned;
+    volatile bool commFinished;
+    Mutex mutex;
+
+    void checkPoison() {
+        if (isPoisoned) {
+            mutex.release();
+            throw PoisonException();
+        }
+    }
+
+    void input(DATA_TYPE* paramDest) {
+        mutex.claim();
+        checkPoison();        
+
+        if (waiting != NULL) {
+            //Writer waiting:
+            *paramDest = *src;
+            Process* wasWaiting = waiting;
+            waiting = NULL; src = NULL;
+            commFinished = true;
+            freeProcessNoAlt(wasWaiting);
+            mutex.release();
+        } else {
+            //No-one waiting:
+            dest = paramDest;
+            waiting = currentProcess();
+            commFinished = false;
+            mutex.release();
+            reschedule();
+            //Now communication has finished (or we've been poisoned)
+            mutex.claim();
+            if (false == commFinished)
+                checkPoison();
+            mutex.release();
+        }
+    }
+
+    void beginExtInput(DATA_TYPE* paramDest) {
+        mutex.claim();
+        checkPoison();
+
+        if (waiting != NULL) {
+            //Writer waiting:
+            *paramDest = *src;
+            mutex.release();
+        } else {
+            //No-one waiting:
+            dest = NULL;
+            waiting = currentProcess();
+            commFinished = false;
+            mutex.release();
+            reschedule();
+            //Now we are in the extended action (or we've been poisoned)
+            mutex.claim();
+            if (false == commFinished)
+                checkPoison();             
+            *paramDest = *src;
+            commFinished = false;
+            mutex.release();
+        }
+    }
+
+    //This method will never throw a poison exception
+    void endExtInput() {
+        //The reader may have poisoned since beginExtInput
+        //If that is the case, we do not want to throw a PoisonException to them
+        //The writer can't have poisoned (they are blocked) so it must have been the reader:
+        //No need to claim the mutex
+
+        if (false == isPoisoned) {
+            Process* wasWaiting = waiting;
+            waiting = NULL; src = NULL;
+            commFinished = true;
+            freeProcessNoAlt(wasWaiting);
+        }
+    }
+
+    void output(const DATA_TYPE* paramSrc) {
+        mutex.claim();
+        checkPoison();
+
+        if (waiting != NULL) {
+            //Reader waiting:
+            if (dest != NULL) {
+                //Normal reader:
+                *dest = *paramSrc;
+                Process* wasWaiting = waiting;
+                waiting = NULL; dest = NULL;
+                commFinished = true;
+                freeProcessNoAlt(wasWaiting);
+                mutex.release();
+            } else {
+                //Alting/extended reader:
+                Process* wasWaiting = waiting;
+                waiting = currentProcess();
+                src = paramSrc;
+                commFinished = true;
+                freeProcessAlting(wasWaiting);
+                mutex.release();
+                reschedule();
+                //Now communication has finished (or we've been poisoned)
+                mutex.claim();
+                if (false == commFinished)
+                    checkPoison();
+                mutex.release();
+            }
+        } else {
+            //No-one waiting:
+            src = paramSrc;
+            waiting = currentProcess();
+            commFinished = false;
+            mutex.release();            
+            reschedule();
+            //Now communication has finished (or we've been poisoned)
+            mutex.claim();
+            if (false == commFinished)
+                checkPoison();
+            mutex.release();
+        }
+    }
+
+    void poisonIn() {
+        mutex.claim();
+        isPoisoned = true;
+        //Don't change commFinished
+        
+        Process* wasWaiting = waiting;
+        waiting = NULL;
+
+        if (wasWaiting != NULL) {
+            //Might be alting, might not:
+            freeProcessAlting(wasWaiting);
+        }
+
+        mutex.release();
+
+    }
+
+    void poisonOut() {
+        poisonIn();
+    }
+
+    //Guard methods:
+
+    bool enable(Process* proc) {
+        mutex.claim();
+
+        if (isPoisoned) {
+            mutex.release();
+            return true;
+        } else if (waiting != NULL) {
+            //Someone is ready to write
+            mutex.release();
+            return true;
+        } else {
+            //Put ourselves in the channel:
+            waiting = proc;
+            dest = NULL;
+            mutex.release();
+            return false;
+        }
+    }
+
+    bool disable(Process* proc) {
+        mutex.claim();
+
+        if (isPoisoned) {
+            mutex.release();
+            return true;
+        } else if (waiting != NULL && waiting != proc) {
+            //Someone is in the channel and its not us:
+            mutex.release();
+            return true;
+        } else {
+            //Only us in the channel, remove ourselves:
+            waiting = NullProcessPtr;
+            mutex.release();
+            return false;
+        }
+    }
+\end{verbatim}}
+
+
+
+\section{Proposed New Algorithm -- New Mutex}
+
+Using this method, every time a process wakes up, it has to claim the mutex again to check whether it was poisoned or not.  This mutex claim may be 
+contested, which may require a further context-switch if spinning does not allow the claim to succeed.  In section \ref{sec-alting} a JCSP method 
+using (effectively) a mutex-protected shared variable was transformed into an atomically updated variable.  This could be done here -- but a better 
+method is to combine the atomic variable with the mutex.
+
+In section \ref{sec-mutex-analysis}~the spin mutex was chosen for use with channels.  As explained in section \ref{sec-mutex-spin}, spin mutexes use 
+an atomic variable that is set to 0 (unclaimed) or 1 (claimed).  I propose a new special mutex that can also take values 2 (channel poisoned, last 
+communication finished) and 3 (channel poisoned, last communication did not finish).  The attempt to claim the mutex is still an atomic compare and 
+swap, attempting to change the value from 0 to 1.  If the value turns out to have been 2 or 3, a poison exception may be thrown appropriately.  So for 
+example, the mutex will be implemented as follows:
+
+{\small\begin{verbatim}
+//class ChannelMutex
+    volatile int value;
+    
+    bool claimNoPoison() {
+        int oldVal;
+        do {
+            oldVal = AtomicCompareAndSwap(&value,
+                /*COMPARE:*/ 0,
+                /*SWAP:*/ 1);
+            
+            if (oldVal == 0) {
+                //claimed ok - done
+                return true;
+            } else if (oldVal == 2 || oldVal == 3) {
+                //poison!
+                return false;
+            } else {
+                //Someone else has it
+                spin();
+            }            
+        }
+        while (oldVal == 1);
+        
+        return true;
+    }
+    
+    void claimAtStart() {
+        if (false == claimNoPoison())
+            throw PoisonException();
+    }        
+    
+    void checkForPoisonAfterComm() {
+        int oldVal = AtomicGet(&value);
+        //if (oldVal == 2)
+        //    poisoned but last comm was ok - don't throw
+        if (oldVal == 3)
+            throw PoisonException();
+        //otherwise not poisoned
+    }
+    
+    bool checkForPoisonGeneral() {
+        int oldVal = AtomicGet(&value);
+        return (oldVal == 2 || oldVal == 3);
+    }
+    
+    void release() {
+        AtomicPut(&value,0);
+    }
+    
+    void poisonDuringComm() {
+        AtomicPut(&value,3);
+    }
+    
+    void poison() {
+        AtomicPut(&value,2);
+    }
+\end{verbatim}}
+
+The channel algorithms will then be as follows:
+
+{\small\begin{verbatim}
+    Process* volatile waiting;
+    union {
+        const DATA_TYPE* volatile src;
+        DATA_TYPE* volatile dest;
+    };
+    ChannelMutex mutex;
+
+    void input(DATA_TYPE* paramDest) {
+        mutex.claimAtStart();
+
+        if (waiting != NULL) {
+            //Writer waiting:
+            *paramDest = *src;
+            Process* wasWaiting = waiting;
+            waiting = NULL; src = NULL;
+            freeProcessNoAlt(wasWaiting);
+            mutex.release();
+        } else {
+            //No-one waiting:
+            dest = paramDest;
+            waiting = currentProcess();
+            mutex.release();
+            reschedule();
+            //Now communication has finished (or we've been poisoned)
+            mutex.checkForPoisonAfterComm();
+        }
+    }
+
+    void beginExtInput(DATA_TYPE* paramDest) {
+        mutex.claimAtStart();
+
+        if (waiting != NULL) {
+            //Writer waiting:
+            *paramDest = *src;
+            mutex.release();
+        } else {
+            //No-one waiting:
+            dest = NULL;
+            waiting = currentProcess();
+            mutex.release();
+            reschedule();
+            //Now we are in the extended action (or we've been poisoned)
+            mutex.claimAtStart();
+            *paramDest = *src;
+            mutex.release();
+        }
+    }
+
+    //This method will never throw a poison exception
+    void endExtInput() {
+        //The reader may have poisoned since beginExtInput
+        //If that is the case, we do not want to throw a PoisonException to them
+        //The writer can't have poisoned (they are blocked) so it must have been the reader:
+        //No need to claim the mutex
+
+        if (false == mutex.checkForPoisonGeneral()) {
+            Process* wasWaiting = waiting;
+            waiting = NULL; src = NULL;
+            freeProcessNoAlt(wasWaiting);
+        }
+    }
+
+    void output(const DATA_TYPE* paramSrc) {
+        mutex.claimAtStart();
+
+        if (waiting != NULL) {
+            //Reader waiting:
+            if (dest != NULL) {
+                //Normal reader:
+                *dest = *paramSrc;
+                Process* wasWaiting = waiting;
+                waiting = NULL; dest = NULL;
+                freeProcessNoAlt(wasWaiting);
+                mutex.release();
+            } else {
+                //Alting/extended reader:
+                Process* wasWaiting = waiting;
+                waiting = currentProcess();
+                src = paramSrc;
+                freeProcessAlting(wasWaiting);
+                mutex.release();
+                reschedule();
+                //Now communication has finished (or we've been poisoned)
+                mutex.checkForPoisonAfterComm();
+            }
+        } else {
+            //No-one waiting:
+            src = paramSrc;
+            waiting = currentProcess();
+            mutex.release();
+            reschedule();
+            //Now communication has finished (or we've been poisoned)
+            mutex.checkForPoisonAfterComm();
+        }
+    }
+
+    void poisonIn() {
+        if (mutex.claimNoPoison())
+        {
+            Process* wasWaiting = waiting;
+            waiting = NULL;
+            
+            if (wasWaiting != NULL) {
+                //They are mid-communication:
+                mutex.poisonDuringComm();
+            } else {
+                //No-one waiting:
+                mutex.poison();
+            }
+            
+            if (wasWaiting != NULL) {
+                //Might be alting, might not:
+                freeProcessAlting(wasWaiting);
+            }
+        }
+    }
+
+    void poisonOut() {
+        poisonIn();
+    }
+    
+    //Guard methods:
+
+    bool enable(Process* proc) {
+        if (false == mutex.claimNoPoison()) {
+            //Channel is poisoned:
+            return true;
+        } else if (waiting != NULL) {
+            //Someone is ready to write
+            mutex.release();
+            return true;
+        } else {
+            //Put ourselves in the channel:
+            waiting = proc;
+            dest = NULL;
+            mutex.release();
+            return false;
+        }
+    }
+
+    bool disable(Process* proc) {
+        if (false == mutex.claimNoPoison()) {
+            //Channel is poisoned:
+            return true;
+        } else if (waiting != NULL && waiting != proc) {
+            //Someone is in the channel and its not us:
+            mutex.release();
+            return true;
+        } else {
+            //Only us in the channel, remove ourselves:
+            waiting = NullProcessPtr;
+            mutex.release();
+            return false;
+        }
+    }    
+\end{verbatim}}
+
+\section{Proposed New Algorithm -- Completion State Variables}
+
+
+{\small\begin{verbatim}
+    Process* volatile waiting;
+    union {
+        const DATA_TYPE* volatile src;
+        DATA_TYPE* volatile dest;
+    };
+    volatile bool isPoisoned;
+    bool volatile * volatile commFinished;
+    Mutex mutex;
+
+    void checkPoison() {
+        if (isPoisoned) {
+            mutex.release();
+            throw PoisonException();
+        }
+    }
+
+    void input(DATA_TYPE* paramDest) {
+        mutex.claim();
+        checkPoison();        
+
+        if (waiting != NULL) {
+            //Writer waiting:
+            *paramDest = *src;
+            Process* wasWaiting = waiting;
+            waiting = NULL; src = NULL;
+            *commFinished = true;
+            freeProcessNoAlt(wasWaiting);
+            mutex.release();
+        } else {
+            //No-one waiting:
+            dest = paramDest;
+            waiting = currentProcess();
+            volatile bool finished = false;
+            commFinished = &finished;
+            mutex.release();
+            reschedule();
+            //Now communication has finished (or we've been poisoned)
+            if (false == finished)
+                throw PoisonException();
+        }
+    }
+
+    void beginExtInput(DATA_TYPE* paramDest) {
+        mutex.claim();
+        checkPoison();
+
+        if (waiting != NULL) {
+            //Writer waiting:
+            *paramDest = *src;
+            mutex.release();
+        } else {
+            //No-one waiting:
+            dest = NULL;
+            waiting = currentProcess();
+            volatile bool finished = false;
+            commFinished = &finished;
+            mutex.release();
+            reschedule();
+            //Now we are in the extended action (or we've been poisoned)
+            if (false == finished)
+                throw PoisonException();
+            mutex.claim();
+            *paramDest = *src;
+            mutex.release();
+        }
+    }
+
+    //This method will never throw a poison exception
+    void endExtInput() {
+        //The reader may have poisoned since beginExtInput
+        //If that is the case, we do not want to throw a PoisonException to them
+        //The writer can't have poisoned (they are blocked) so it must have been the reader:
+        //No need to claim the mutex
+
+        if (false == isPoisoned) {
+            Process* wasWaiting = waiting;
+            waiting = NULL; src = NULL;
+            *commFinished = true;
+            freeProcessNoAlt(wasWaiting);
+        }
+    }
+
+    void output(const DATA_TYPE* paramSrc) {
+        mutex.claim();
+        checkPoison();
+
+        if (waiting != NULL) {
+            //Reader waiting:
+            if (dest != NULL) {
+                //Normal reader:
+                *dest = *paramSrc;
+                Process* wasWaiting = waiting;
+                waiting = NULL; dest = NULL;
+                *commFinished = true;
+                freeProcessNoAlt(wasWaiting);
+                mutex.release();
+            } else {
+                //Alting/extended reader:
+                Process* wasWaiting = waiting;
+                waiting = currentProcess();
+                src = paramSrc;
+                *commFinished = true;
+                volatile bool finished = false;
+                commFinished = &finished;
+                freeProcessAlting(wasWaiting);
+                mutex.release();
+                reschedule();
+                //Now communication has finished (or we've been poisoned)
+                if (false == finished)
+                    throw PoisonException();
+            }
+        } else {
+            //No-one waiting:
+            src = paramSrc;
+            waiting = currentProcess();
+            finished = false;
+            commFinished = &finished;
+            mutex.release();
+            reschedule();
+            //Now communication has finished (or we've been poisoned)
+            if (false == finished)
+                throw PoisonException();
+        }
+    }
+
+    void poisonIn() {
+        mutex.claim();
+        isPoisoned = true;
+        //Don't change commFinished
+        
+        Process* wasWaiting = waiting;
+        waiting = NULL;
+
+        if (wasWaiting != NULL) {
+            //Might be alting, might not:
+            freeProcessAlting(wasWaiting);
+        }
+
+        mutex.release();
+
+    }
+
+    void poisonOut() {
+        poisonIn();
+    }
+    
+    //Guard variable:
+    volatile bool finished;
+
+    //Guard methods:
+    
+    bool enable(Process* proc) {
+        mutex.claim();
+
+        if (isPoisoned) {
+            mutex.release();
+            return true;
+        } else if (waiting != NULL) {
+            //Someone is ready to write
+            mutex.release();
+            return true;
+        } else {
+            //Put ourselves in the channel:
+            waiting = proc;
+            dest = NULL;
+            //Mainly to stop the pointer being invalid:
+            commFinished = &finished;
+            mutex.release();
+            return false;
+        }
+    }
+
+    bool disable(Process* proc) {
+        mutex.claim();
+
+        if (isPoisoned) {
+            mutex.release();
+            return true;
+        } else if (waiting != NULL && waiting != proc) {
+            //Someone is in the channel and its not us:
+            mutex.release();
+            return true;
+        } else {
+            //Only us in the channel, remove ourselves:
+            waiting = NullProcessPtr;
+            mutex.release();
+            return false;
+        }
+    }
+\end{verbatim}}
+
+
+\end{document}

@@ -1,0 +1,9 @@
+To install C++CSP2 on POSIX-like systems:
+
+[Unpack the tar - if you're reading this, you have probably done that]
+Run "./configure"
+Run "make"
+It is advised that you run "make test" as well.  All tests should pass
+Run "make install" (or "sudo make install") if you wish.
+
+Run "make docs" to generate the documentation for the library - doxygen (http://www.doxygen.org/) required.
