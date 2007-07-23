@@ -78,6 +78,8 @@ namespace csp
 		friend void Run(const SequentialHelperOneThread&);
 		friend void Run(ThreadCSProcess*);
 		friend void RunInThisThread(CSProcess*);
+		friend void RunInThisThread(const ParallelHelperOneThread&);		
+		friend void RunInThisThread(const SequentialHelperOneThread&);
 		#endif //CPPCSP_DOXYGEN
 	};
 	
@@ -108,6 +110,8 @@ namespace csp
 		friend void Run(const ParallelHelperOneThread&);
 		friend void Run(const SequentialHelperOneThread&);
 		friend void RunInThisThread(CSProcess* process);
+		friend void RunInThisThread(const ParallelHelperOneThread&);		
+		friend void RunInThisThread(const SequentialHelperOneThread&);		
 		friend class ScopedForking;
 		#endif //CPPCSP_DOXYGEN
 	};

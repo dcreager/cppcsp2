@@ -147,7 +147,7 @@ public:
 		{
 			RecordEvents _(&actA);
 
-			Run(InParallelOneThread(_skip0)(_skip1)(_skip2));
+			RunInThisThread(InParallelOneThread(_skip0)(_skip1)(_skip2));
 		}
 		
 		
@@ -198,7 +198,7 @@ public:
 		{
 			RecordEvents _(&actA);
 
-			Run(InSequenceOneThread(_skip0)(_skip1)(_skip2));
+			RunInThisThread(InSequenceOneThread(_skip0)(_skip1)(_skip2));
 		}
 		
 		
@@ -325,7 +325,7 @@ public:
 		{
 			RecordEvents _(&actA);
 
-			Run(InSequenceOneThread(_par0)(_par1));
+			RunInThisThread(InSequenceOneThread(_par0)(_par1));
 		}
 		
 		
@@ -368,6 +368,8 @@ public:
 
 		END_TEST("Run Test 5");
 	}	
+	
+	//TODO add some tests testing running composite processes in a new thread
 	
 	class DummyException {};
 	

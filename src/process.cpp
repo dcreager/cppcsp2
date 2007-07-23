@@ -349,7 +349,7 @@ namespace csp
 		}		
 	}	
 	
-	void Run(const ParallelHelperOneThread& helper)
+	void RunInThisThread(const ParallelHelperOneThread& helper)
 	{
 		Barrier barrier;
 		ScopedBarrierEnd end(barrier.end());
@@ -364,7 +364,7 @@ namespace csp
 		end.sync();		
 	}
 	
-	void Run(const SequentialHelperOneThread& helper)
+	void RunInThisThread(const SequentialHelperOneThread& helper)
 	{
 		Barrier barrier;
 		ScopedBarrierEnd end(barrier.end());
@@ -390,6 +390,18 @@ namespace csp
 		}		
 	}	
 	
+	void Run(const ParallelHelperOneThread& helper)
+	{
+		Run(helper.process());
+	}
+	
+	void Run(const SequentialHelperOneThread& helper)
+	{
+		Run(helper.process());
+	}	
+	
+	
+	
 	//TODO later make sure our processes are all deleted in the case of an out of resources error!	
 	
 	template <typename HELPER>
@@ -403,17 +415,29 @@ namespace csp
 			Run(helper);
 		}
 	public:
-	#ifdef CPPCSP_NAMEDPROCESSES	
-		inline _HelperProcess(const std::string& family,const std::string& name,const HELPER& _helper)
-			:	CSProcess(family,name),helper(_helper)
-		{
-		}
-	#endif
 		inline _HelperProcess(const HELPER& _helper)
 			:	CSProcess(65536),helper(_helper)
 		{
 		}
 	};
+
+	template <typename HELPER>
+	class _HelperProcessThisThread : public CSProcess
+	{
+	private:
+		const HELPER helper;
+	protected:
+		void run()
+		{
+			RunInThisThread(helper);
+		}
+	public:
+		inline _HelperProcessThisThread(const HELPER& _helper)
+			:	CSProcess(65536),helper(_helper)
+		{
+		}
+	};
+
 	
 	CSProcessPtr ParallelHelper::process() const
 	{	
@@ -430,7 +454,7 @@ namespace csp
 		if (processList.size() == 1)
 			return processList.front();
 		else
-			return new _HelperProcess<ParallelHelperOneThread>(*this);	
+			return new _HelperProcessThisThread<ParallelHelperOneThread>(*this);	
 	}
 	
 	CSProcessPtr SequentialHelperOneThread::process() const
@@ -438,7 +462,7 @@ namespace csp
 		if (processList.size() == 1)
 			return processList.front();
 		else
-			return new _HelperProcess<SequentialHelperOneThread>(*this);	
+			return new _HelperProcessThisThread<SequentialHelperOneThread>(*this);
 	}
 	
 	
