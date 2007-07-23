@@ -60,7 +60,11 @@ namespace csp
 		//Use compiler intrinsics if possible:
 		#ifdef CPPCSP_GCC
 			#ifndef CPPCSP_MINGW
-				#define DeclareThreadLocalPointer(T) __thread T *
+				#ifdef CPPCSP_LINUX
+					#define DeclareThreadLocalPointer(T) __thread T *
+				#else
+					#define DeclareThreadLocalPointer(T) ThreadLocalPointer< T >
+				#endif
 			#else
 				#define DeclareThreadLocalPointer(T) ThreadLocalPointer< T >
 			#endif
