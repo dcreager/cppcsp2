@@ -25,6 +25,18 @@ namespace internal
 #ifdef CPPCSP_GCC
 
 	#define CPPCSP_ASM(gcc,msvc) __asm__ ( gcc ) ;
+	
+	#ifdef CPPCSP_DARWIN
+		//Using Mac OS X assembler:
+		//Must not have trailing space
+		#define LOCK_CMPXCHG "lock/cmpxchg"
+		#define LOCK_XCHG "lock/xchg"
+	#else
+		//Using a recent GNU assembler:
+		//Must not have trailing space
+		#define LOCK_CMPXCHG "lock cmpxchg"		
+		#define LOCK_XCHG "lock xchg"		
+	#endif
 
 #else
 	#ifdef CPPCSP_MSVC
@@ -256,7 +268,7 @@ inline void* InterlockedCompareExchangePointer(void* volatile* pointerToPointer,
 			"movl %2,%%eax\n\t"
 			"movl %3,%%ecx\n\t"
 			"movl %4,%%edx\n\t"
-			"lock cmpxchg %%edx, (%%ecx)\n\t"
+			LOCK_CMPXCHG " %%edx, (%%ecx)\n\t"
 			"movl %%eax,%0\n\t"
 			:	"=m"(prevValue),"=m"(*(pointerToPointer))
 			:	"m"(compare),"m"(pointerToPointer),"m"(exchange)
@@ -268,7 +280,7 @@ inline void* InterlockedCompareExchangePointer(void* volatile* pointerToPointer,
 			"movq %2,%%rax\n\t"
 			"movq %3,%%rcx\n\t"
 			"movq %4,%%rdx\n\t"
-			"lock cmpxchgq %%rdx, (%%rcx)\n\t"
+			LOCK_CMPXCHG "q %%rdx, (%%rcx)\n\t"
 			"movq %%rax,%0\n\t"
 			:	"=m"(prevValue),"=m"(*(pointerToPointer))
 			:	"m"(compare),"m"(pointerToPointer),"m"(exchange)
@@ -288,7 +300,7 @@ inline usign32 InterlockedCompareExchange(usign32 volatile* pointerToPointer /*m
 			"movl %2,%%eax\n\t"
 			"movl %3,%%ecx\n\t"
 			"movl %4,%%edx\n\t"
-			"lock cmpxchg %%edx, (%%ecx)\n\t"
+			LOCK_CMPXCHG " %%edx, (%%ecx)\n\t"
 			"movl %%eax,%0\n\t"
 			:	"=m"(prevValue),"=m"(*(pointerToPointer))
 			:	"m"(compare),"m"(pointerToPointer),"m"(exchange)
@@ -300,7 +312,7 @@ inline usign32 InterlockedCompareExchange(usign32 volatile* pointerToPointer /*m
 			"movl %2,%%eax\n\t"
 			"movq %3,%%rcx\n\t"
 			"movl %4,%%edx\n\t"
-			"lock cmpxchg %%edx, (%%rcx)\n\t"
+			LOCK_CMPXCHG " %%edx, (%%rcx)\n\t"
 			"movl %%eax,%0\n\t"
 			:	"=m"(prevValue),"=m"(*(pointerToPointer))
 			:	"m"(compare),"m"(pointerToPointer),"m"(exchange)
@@ -319,7 +331,7 @@ inline void* InterlockedExchangePointer(void* volatile* pointerToPointer,void* e
 	(
 		"movl %2, %%eax\n\t"
 		"movl %3, %%ebx\n\t"
-		"lock xchg %%eax, (%%ebx)\n\t"
+		LOCK_XCHG " %%eax, (%%ebx)\n\t"
 		"movl %%eax, %0"
 		:	"=m"(prevValue),"=m"(*(pointerToPointer))
 		:	"m"(exchange),"m"(pointerToPointer)
@@ -330,7 +342,7 @@ inline void* InterlockedExchangePointer(void* volatile* pointerToPointer,void* e
 	(
 		"movq %2, %%rax\n\t"
 		"movq %3, %%rbx\n\t"
-		"lock xchgq %%rax, (%%rbx)\n\t"
+		LOCK_XCHG "q %%rax, (%%rbx)\n\t"
 		"movq %%rax, %0"
 		:	"=m"(prevValue),"=m"(*(pointerToPointer))
 		:	"m"(exchange),"m"(pointerToPointer)
@@ -348,7 +360,7 @@ inline usign32 InterlockedExchange(usign32 volatile* pointerToPointer /*misnomer
 	(
 		"movl %2, %%eax\n\t"
 		"movl %3, %%ebx\n\t"
-		"lock xchg %%eax, (%%ebx)\n\t"
+		LOCK_XCHG " %%eax, (%%ebx)\n\t"
 		"movl %%eax, %0"
 		:	"=m"(prevValue),"=m"(*(pointerToPointer))
 		:	"m"(exchange),"m"(pointerToPointer)
@@ -359,7 +371,7 @@ inline usign32 InterlockedExchange(usign32 volatile* pointerToPointer /*misnomer
 	(
 		"movl %2, %%eax\n\t"
 		"movq %3, %%rbx\n\t"
-		"lock xchg %%eax, (%%rbx)\n\t"
+		LOCK_XCHG " %%eax, (%%rbx)\n\t"
 		"movl %%eax, %0"
 		:	"=m"(prevValue),"=m"(*(pointerToPointer))
 		:	"m"(exchange),"m"(pointerToPointer)
@@ -379,7 +391,7 @@ inline usign32 InterlockedIncrement(usign32 volatile* address)
 		"movl (%%ecx), %%eax\n\t"
 		"0: movl %%eax, %%edx\n\t"
 		"incl %%edx\n\t"
-		"lock cmpxchg %%edx, (%%ecx)\n\t"
+		LOCK_CMPXCHG " %%edx, (%%ecx)\n\t"
 		"jnz 0b\n\t"
 		"movl %%edx, %0\n\t"
 		:	"=m"(newValue),"=m"(*(address))
@@ -393,7 +405,7 @@ inline usign32 InterlockedIncrement(usign32 volatile* address)
 		"movl (%%rcx), %%eax\n\t"
 		"0: movl %%eax, %%edx\n\t"
 		"incl %%edx\n\t"
-		"lock cmpxchg %%edx, (%%rcx)\n\t"
+		LOCK_CMPXCHG " %%edx, (%%rcx)\n\t"
 		"jnz 0b\n\t"
 		"movl %%edx, %0\n\t"
 		:	"=m"(newValue),"=m"(*(address))
@@ -415,7 +427,7 @@ inline usign32 InterlockedDecrement(usign32 volatile* address)
 		"movl (%%ecx), %%eax\n\t"
 		"0: movl %%eax, %%edx\n\t"
 		"decl %%edx\n\t"
-		"lock cmpxchg %%edx, (%%ecx)\n\t"
+		LOCK_CMPXCHG " %%edx, (%%ecx)\n\t"
 		"jnz 0b\n\t"
 		"movl %%edx, %0\n\t"
 		:	"=m"(newValue),"=m"(*(address))
@@ -429,7 +441,7 @@ inline usign32 InterlockedDecrement(usign32 volatile* address)
 		"movl (%%rcx), %%eax\n\t"
 		"0: movl %%eax, %%edx\n\t"
 		"decl %%edx\n\t"
-		"lock cmpxchg %%edx, (%%rcx)\n\t"
+		LOCK_CMPXCHG " %%edx, (%%rcx)\n\t"
 		"jnz 0b\n\t"
 		"movl %%edx, %0\n\t"
 		:	"=m"(newValue),"=m"(*(address))
