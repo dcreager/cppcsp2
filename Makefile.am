@@ -2,8 +2,8 @@
 
 AM_CXXFLAGS = -ggdb3 -Wall -O2 -D_REENTRANT -I. -Woverloaded-virtual 
 AM_CXXFLAGS += -Wctor-dtor-privacy -Wsign-promo -Wextra -Wfloat-equal -Wpointer-arith 
-AM_CXXFLAGS += -Wcast-align -Wwrite-strings -Wconversion -Wsign-compare -Werror 
-#-Wold-style-cast
+AM_CXXFLAGS += -Wcast-align -Wwrite-strings -Wconversion -Wsign-compare 
+#-Werror -Wold-style-cast
 
 BUILT_SOURCES = src/cppcsp_config.h
 CLEANFILES = src/cppcsp_config.h
@@ -41,10 +41,19 @@ src/cppcsp_config.h: Makefile
 
 else
 
+if DARWIN
+
+src/cppcsp_config.h: Makefile 
+	echo -e '#ifndef SIZEOF_VOIDP\n#define SIZEOF_VOIDP $(VAL_SIZEOF_VOIDP)\n#endif' > src/cppcsp_config.h
+	echo -e '#define CPPCSP_POSIX\n#define CPPCSP_DARWIN\n#define CPPCSP_LONGJMP\n#define $(MYFLAGS)' >>$@
+
+else
+
 src/cppcsp_config.h: Makefile 
 	echo -e '#ifndef SIZEOF_VOIDP\n#define SIZEOF_VOIDP $(VAL_SIZEOF_VOIDP)\n#endif' > src/cppcsp_config.h
 	echo -e '#define CPPCSP_POSIX\n#define $(MYFLAGS)' >>$@
 
+endif
 endif
 endif
 endif
