@@ -1143,15 +1143,23 @@ namespace csp
 			//TODO later remove this
 			static volatile usign32 waitFP_calls;
 		};				
-	//#ifdef CPPCSP_POSIX
-	//	typedef _AtomicProcessQueue< Condition<1> > AtomicProcessQueue;
-	//#else
+	#ifdef CPPCSP_POSIX
+		#ifndef CPPCSP_LINUX
+			typedef _AtomicProcessQueue< Condition<1> > AtomicProcessQueue;
+		#else
+			#ifdef CPPCSP_ATOMICS
+				typedef _AtomicProcessQueue< MutexAndEvent<PureSpinMutex> > AtomicProcessQueue;
+			#else
+				typedef _AtomicProcessQueue< MutexAndEvent<OSBlockingMutex> > AtomicProcessQueue;
+			#endif		
+		#endif
+	#else
 		#ifdef CPPCSP_ATOMICS
 			typedef _AtomicProcessQueue< MutexAndEvent<PureSpinMutex> > AtomicProcessQueue;
 		#else
 			typedef _AtomicProcessQueue< MutexAndEvent<OSBlockingMutex> > AtomicProcessQueue;
 		#endif
-	//#endif
+	#endif
 		
 #ifdef CPPCSP_ATOMICS
 bool PureSpinMutex::tryClaim()

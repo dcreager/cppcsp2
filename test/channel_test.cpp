@@ -544,10 +544,12 @@ public:
 		return _pingPongTest< One2OneChannel<int> >("Threads, Hybrid",true);
 	}
 	
+	/*
 	static TestResult pingPongTest3()
 	{
 		return _pingPongTest< ConditionOne2OneChannel<int,MutexAndEvent<PureSpinMutex,2> > >("Threads, Plain",true);
 	}
+	*/
 	
 	static TestResult commsTimeTest0()
 	{
@@ -609,7 +611,7 @@ public:
 		return TestResultPass("CT6"); //_commsTimeTest< _One2OneChannel<int,QueuedMutex> >("Threads, Queued Mutex",true);
 	}
 	
-	
+	/*
 	static TestResult commsTimeTest7()
 	{
 		return _commsTimeTest< ConditionOne2OneChannel<int, MutexAndEvent<OSBlockingMutex,2> > >("Threads, Native Mutex and Native Event",true);
@@ -624,7 +626,7 @@ public:
 	{
 		return _commsTimeTest< ConditionOne2OneChannel<int,Condition<2> > >("Threads, Condition",true);
 	}
-	
+	*/
 	
 	static TestResult commsTimeTest9()	
 	{
@@ -2469,11 +2471,11 @@ public:
 	{
 		us = currentProcess();
 		return list_of<TestResult (*) ()>(commsTimeTest0) (commsTimeTest1) (commsTimeTest2) (commsTimeTest3) 
-			(commsTimeTest4) (commsTimeTest5) (commsTimeTest6) (commsTimeTest7) (commsTimeTest8) /*(commsTimeTest8B)*/
+			(commsTimeTest4) (commsTimeTest5) (commsTimeTest6) /*(commsTimeTest7) (commsTimeTest8) (commsTimeTest8B)*/
 			(commsTimeTest9) (commsTimeTest10)
 			(commsTimeTest0Double) (commsTimeTest1Double)
 			(commsTimeTest0Triangle) (commsTimeTest1Triangle) (commsTimeTest2Triangle)
-			(pingPongTest0) (pingPongTest1) (pingPongTest2) (pingPongTest3)
+			(pingPongTest0) (pingPongTest1) (pingPongTest2) //(pingPongTest3)
 		;
 	}	
 	
