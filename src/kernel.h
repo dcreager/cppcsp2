@@ -237,7 +237,8 @@ namespace csp
 				if (timeoutId->timeout_prevProcessPtr != NULL)
 				{
 					*(timeoutId->timeout_prevProcessPtr) = timeoutId->timeout_nextProcess;
-					timeoutId->timeout_nextProcess->timeout_prevProcessPtr = timeoutId->timeout_prevProcessPtr;
+					if (timeoutId->timeout_nextProcess != NULL)
+						timeoutId->timeout_nextProcess->timeout_prevProcessPtr = timeoutId->timeout_prevProcessPtr;
 					timeoutId->timeout_nextProcess = NULL;
 					timeoutId->timeout_prevProcessPtr = NULL;										
 					

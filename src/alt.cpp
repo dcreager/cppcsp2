@@ -51,7 +51,11 @@ bool csp::RelTimeoutGuard::enable(internal::AltingProcessPtr proc)
 
 	timeoutId = addTimeoutAlt(&timeout,proc);
 	
-	return false;
+	Time cur;
+	CurrentTime(&cur);
+	
+	
+	return cur >= timeout;
 }
 
 bool csp::RelTimeoutGuard::disable(internal::AltingProcessPtr)
@@ -72,8 +76,12 @@ void csp::RelTimeoutGuard::activate()
 bool csp::TimeoutGuard::enable(internal::AltingProcessPtr proc)
 {
 	timeoutId = addTimeoutAlt(&time,proc);
+
+	Time cur;
+	CurrentTime(&cur);
+
 	
-	return false;
+	return cur >= time;
 }
 
 bool csp::TimeoutGuard::disable(internal::AltingProcessPtr)

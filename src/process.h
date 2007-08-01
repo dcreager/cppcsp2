@@ -148,7 +148,7 @@ namespace csp
 			template <typename CONDITION>					
 			friend class _AtomicProcessQueue;
 			friend class Primitive;
-			friend class AltTest;
+			friend class ::AltTest;
 			friend void csp::Start_CPPCSP();						
 		};	
 		
