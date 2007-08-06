@@ -135,6 +135,8 @@ namespace csp
 			inline Process(Kernel* _kernel,ThreadId _threadId,usign32 _stackSize)
 				:	nextProcess(NULL),					
 					alting(0),
+					timeout_nextProcess(NULL),
+					timeout_prevProcessPtr(NULL),
 					kernel(_kernel),
 					threadId(_threadId),
 					stackSize(_stackSize)
