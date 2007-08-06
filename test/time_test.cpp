@@ -293,6 +293,161 @@ class TimeTest : public Test, public virtual internal::TestInfo, public Schedule
 		
 		END_TEST("CPPCSP_SleepFor/CPPCSP_SleepUntil test");
 	}
+	
+	static TestResult test5()
+	{
+		BEGIN_TEST()
+		
+		SetUp setup;
+			
+		Time t0,t1;
+		
+		t0 = CurrentTime();		
+		RunInThisThread(new SleepForProcess(MilliSeconds(10)));
+		t1 = CurrentTime();
+		ASSERTL((t1 - t0) >= MilliSeconds(10),"Did not wait for long enough",__LINE__);
+		
+		
+		t0 = CurrentTime();		
+		RunInThisThread(InParallelOneThread 
+			(new SleepForProcess(MilliSeconds(10)))
+			(new SleepForProcess(MilliSeconds(20)))
+			(new SleepForProcess(MilliSeconds(30)))
+		);
+		t1 = CurrentTime();
+		ASSERTL((t1 - t0) >= MilliSeconds(30),"Did not wait for long enough",__LINE__);
+		
+		t0 = CurrentTime();		
+		RunInThisThread(InSequenceOneThread
+			(new SleepForProcess(MilliSeconds(10)))
+			(new SleepForProcess(MilliSeconds(20)))
+			(new SleepForProcess(MilliSeconds(30)))
+		);
+		t1 = CurrentTime();
+		ASSERTL((t1 - t0) >= MilliSeconds(60),"Did not wait for long enough",__LINE__);		
+				
+		t0 = CurrentTime();		
+		RunInThisThread(InParallelOneThread 
+			(new SleepForProcess(MilliSeconds(10)))
+			(new SleepForProcess(MilliSeconds(10)))
+			(new SleepForProcess(MilliSeconds(10)))
+			(new SleepForProcess(MilliSeconds(10)))
+			(new SleepForProcess(MilliSeconds(10)))
+			(new SleepForProcess(MilliSeconds(10)))
+		);
+		t1 = CurrentTime();
+		ASSERTL((t1 - t0) >= MilliSeconds(10),"Did not wait for long enough",__LINE__);
+		
+
+		t0 = CurrentTime() + MilliSeconds(10);
+		RunInThisThread(new SleepUntilProcess(t0));		
+		t1 = CurrentTime();
+		ASSERTL(t1 >= t0,"Did not wait for long enough",__LINE__);
+		
+		t0 = CurrentTime();		
+		RunInThisThread(InParallelOneThread 
+			(new SleepUntilProcess(t0 + MilliSeconds(10)))
+			(new SleepUntilProcess(t0 + MilliSeconds(20)))
+			(new SleepUntilProcess(t0 + MilliSeconds(30)))
+		);
+		t1 = CurrentTime();
+		ASSERTL((t1 - t0) >= MilliSeconds(30),"Did not wait for long enough",__LINE__);
+		
+		t0 = CurrentTime();		
+		RunInThisThread(InSequenceOneThread 
+			(new SleepUntilProcess(t0 + MilliSeconds(10)))
+			(new SleepUntilProcess(t0 + MilliSeconds(20)))
+			(new SleepUntilProcess(t0 + MilliSeconds(30)))
+		);
+		t1 = CurrentTime();
+		ASSERTL((t1 - t0) >= MilliSeconds(30),"Did not wait for long enough",__LINE__);		
+		
+		t0 = CurrentTime();		
+		RunInThisThread(InSequenceOneThread 
+			(new SleepUntilProcess(t0 + MilliSeconds(30)))
+			(new SleepUntilProcess(t0 + MilliSeconds(20)))
+			(new SleepUntilProcess(t0 + MilliSeconds(10)))
+		);
+		t1 = CurrentTime();
+		ASSERTL((t1 - t0) >= MilliSeconds(30),"Did not wait for long enough",__LINE__);		
+
+		t0 = CurrentTime();		
+		RunInThisThread(InParallelOneThread 
+			(new SleepUntilProcess(t0 + MilliSeconds(10)))
+			(new SleepUntilProcess(t0 + MilliSeconds(10)))
+			(new SleepUntilProcess(t0 + MilliSeconds(10)))
+			(new SleepUntilProcess(t0 + MilliSeconds(10)))
+			(new SleepUntilProcess(t0 + MilliSeconds(10)))
+			(new SleepUntilProcess(t0 + MilliSeconds(10)))
+		);
+		t1 = CurrentTime();
+		ASSERTL((t1 - t0) >= MilliSeconds(10),"Did not wait for long enough",__LINE__);
+		
+
+		t0 = CurrentTime();
+		RunInThisThread(new SleepUntilProcess(t0));		
+		t1 = CurrentTime();
+		ASSERTL(t1 >= t0,"Did not wait for long enough",__LINE__);
+		
+		t0 = CurrentTime();
+		RunInThisThread(new SleepForProcess(MilliSeconds(1)));
+		RunInThisThread(new SleepUntilProcess(t0));
+		t1 = CurrentTime();
+		ASSERTL(t1 >= t0,"Did not wait for long enough",__LINE__);		
+		
+		t0 = CurrentTime();
+		RunInThisThread(new SleepForProcess(MilliSeconds(0)));
+		t1 = CurrentTime();
+		ASSERTL(t1 >= t0,"Did not wait for long enough",__LINE__);
+		
+		t0 = CurrentTime();
+		RunInThisThread(new SleepForProcess(Seconds(-1)));
+		t1 = CurrentTime();
+		ASSERTL(t1 >= t0,"Did not wait for long enough",__LINE__);		
+				
+		END_TEST("Extensive SleepFor/SleepUntil test");
+	}
+	
+	static TestResult test6()
+	{
+		BEGIN_TEST()
+		
+		Time t0,t1;
+		unsigned n;
+		
+		{
+			list<Guard*> guards = list_of<Guard*>
+				(new RelTimeoutGuard(MilliSeconds(10)))				
+				(new RelTimeoutGuard(MilliSeconds(10)))
+				(new RelTimeoutGuard(MilliSeconds(10)))
+			; 
+		
+			csp::Alternative alt(guards);
+		
+			t0 = CurrentTime();
+			n = alt.priSelect();
+			t1 = CurrentTime();
+			
+			//Given that we are pri-alting, and we know that the guards are enabled in order,
+			//the first guard must be selected:
+			
+			ASSERTEQ(0,n,"First guard not selected",__LINE__);
+			ASSERTL((t1 - t0) >= MilliSeconds(10),"Did not wait for long enough",__LINE__);
+			
+			//Use the alt again -- should still wait for relative time:
+			
+			t0 = CurrentTime();
+			n = alt.priSelect();
+			t1 = CurrentTime();
+			ASSERTEQ(0,n,"First guard not selected",__LINE__);
+			ASSERTL((t1 - t0) >= MilliSeconds(10),"Did not wait for long enough",__LINE__);			
+		}
+		
+	
+		
+		
+		END_TEST("Timeouts in ALT test");
+	}
 
 	static TestResult testAccuracy()
 	{
@@ -365,7 +520,7 @@ class TimeTest : public Test, public virtual internal::TestInfo, public Schedule
 	
 		//Tests 2 and 3 rely on certain floating point behaviour that is not portable,
 		//so tests 2 and 3 are no longer run
-		return list_of<TestResult (*)()>(test0)(test1)(test4)
+		return list_of<TestResult (*)()>(test0)(test1)(test4)(test5)(test6)
 		;
 	}
 	
