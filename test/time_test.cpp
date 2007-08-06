@@ -34,6 +34,23 @@ using namespace boost;
 namespace
 {
 
+//Never ready, yields on enable:
+class YieldGuard : public Guard
+{
+protected:
+	bool enable(internal::ProcessPtr)
+	{
+		CPPCSP_Yield();
+		return false;
+	}
+	
+	bool disable(internal::ProcessPtr)
+	{
+		return false;
+	}
+	
+};
+
 class TimeTest : public Test, public virtual internal::TestInfo, public SchedulerRecorder
 {
 	static int maxPrecision;
@@ -440,11 +457,62 @@ class TimeTest : public Test, public virtual internal::TestInfo, public Schedule
 			n = alt.priSelect();
 			t1 = CurrentTime();
 			ASSERTEQ(0,n,"First guard not selected",__LINE__);
-			ASSERTL((t1 - t0) >= MilliSeconds(10),"Did not wait for long enough",__LINE__);			
+			ASSERTL((t1 - t0) >= MilliSeconds(10),"Did not wait for long enough",__LINE__);
 		}
 		
-	
+		{
+			list<Guard*> guards = list_of<Guard*>
+				(new RelTimeoutGuard(MilliSeconds(10)))				
+				(new RelTimeoutGuard(MilliSeconds(20)))
+				(new RelTimeoutGuard(MilliSeconds(30)))
+			; 
 		
+			csp::Alternative alt(guards);
+		
+			t0 = CurrentTime();
+			n = alt.priSelect();
+			t1 = CurrentTime();
+			
+			//Given that we are pri-alting, and we know that the guards are enabled in order,
+			//the first guard must be selected:
+			
+			ASSERTEQ(0,n,"First guard not selected",__LINE__);
+			ASSERTL((t1 - t0) >= MilliSeconds(10),"Did not wait for long enough",__LINE__);
+		}
+		
+		{
+			list<Guard*> guards = list_of<Guard*>
+				(new RelTimeoutGuard(MilliSeconds(30)))				
+				(new RelTimeoutGuard(MilliSeconds(20)))
+				(new RelTimeoutGuard(MilliSeconds(10)))
+			; 
+		
+			csp::Alternative alt(guards);
+		
+			t0 = CurrentTime();
+			n = alt.priSelect();
+			t1 = CurrentTime();
+			
+			ASSERTL((t1 - t0) >= MilliSeconds(10),"Did not wait for long enough",__LINE__);
+		}		
+
+
+		//Test that yielding doesn't screw things up:
+		{
+			list<Guard*> guards = list_of<Guard*>
+				(new RelTimeoutGuard(MilliSeconds(0)))
+				(new YieldGuard)
+				(new RelTimeoutGuard(MilliSeconds(10000)))
+			; 
+		
+			csp::Alternative alt(guards);
+		
+			t0 = CurrentTime();
+			n = alt.priSelect();
+			t1 = CurrentTime();
+			
+			ASSERTL((t1 - t0) < MilliSeconds(10000),"Did not wait for long enough",__LINE__);
+		}		
 		
 		END_TEST("Timeouts in ALT test");
 	}
