@@ -209,7 +209,7 @@ namespace csp
 					
 						//Now step through all the expired timeouts :
 					
-						for (ProcessPtr proc = timedoutHead;proc != timedoutTail;)
+						for (ProcessPtr proc = timedoutHead;proc != headAlt && proc != NULL;)
 						{
 							ProcessPtr proc2 = proc->timeout_nextProcess;
 														
