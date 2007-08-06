@@ -143,7 +143,29 @@ namespace csp
 			
 			///Adds the absolute timeout, even if it has already elapsed.   Linear time.
 			inline TimeoutId addTimeoutAlt(ProcessPtr process, const Time* timeout)
-			{				
+			{
+				//It is possible that a process may call this twice, if they have two timeout guards in the same alt
+				//So we check if they are already in the queue (unit time):
+				
+				if (process->timeout_prevProcessPtr != NULL)
+				{
+					//They are in the queue already.  Use the lesser of the two timeouts as the timeout.
+					//We can't directly replace, because otherwise the queue would become unordered!
+					
+					if (process->timeout <= *timeout)
+					{
+						//The existing timeout is earlier - no need to do anything.
+						return process;
+					}
+					else
+					{
+						//Damn - ours is earlier.  Easiest thing to do is remove (unit time) and re-add:
+						removeTimeout(process);
+					}
+				}
+				
+				
+				//They weren't in the queue already (or have been removed), proceed to add them:
 				return _addTimeout(&headAlt,process,timeout);				
 			}
 			
