@@ -82,6 +82,33 @@ public:
 	}
 };
 
+class TripleAlter : public CSProcess
+{
+private:
+	AltChanin<int> in;
+	Chanout<int> out;
+protected:
+	void run()
+	{
+		list<Guard*> guards;
+		guards.push_back(in.inputGuard());
+		guards.push_back(in.inputGuard());
+		guards.push_back(in.inputGuard());
+		
+		Alternative alt(guards);
+		
+		int n = alt.priSelect();
+		int dontcare;
+		in >> dontcare;
+		out << n;
+	}
+public:
+	TripleAlter(const AltChanin<int>& _in,const Chanout<int>& _out)
+		:	in(_in),out(_out)
+	{
+	}
+};
+
 class AltChannelTest : public Test, public virtual internal::TestInfo, public SchedulerRecorder
 {
 public:
@@ -745,7 +772,7 @@ public:
 		SetUp setup;		
 					
 		WriterProcess<int>* _writer = new WriterProcess<int>(c0.writer(),42,1);
-    	ProcessPtr writer(getProcessPtr(_writer));    	
+    	ProcessPtr writer(getProcessPtr(_writer));
 			
 	    Merger<int>* _alter = new Merger<int>(c0.reader(),c1.reader(),d.writer());
     	ProcessPtr alter(getProcessPtr(_alter));
@@ -853,7 +880,7 @@ public:
 			(us,us,us) (us,NullProcessPtr,NullProcessPtr) //We yield
 			(alter,NullProcessPtr,NullProcessPtr) //They block on the channels
 			(us,alter,alter) //We poison both channels, but they only wake up once
-		;			
+		;
 			
 		EventList actA;
 		{
@@ -918,6 +945,134 @@ public:
 		}
 	}		
 	
+	static TestResult testRepGuard0()
+	{
+		One2OneChannel<int> c;
+		
+		FIFOBuffer<int>::Factory factory(1);
+		BufferedOne2OneChannel<int> d(factory);		
+
+		{
+			ScopedForking forking;
+			BEGIN_TEST()
+			
+			SetUp setup;
+			
+			CSProcess* _alter = new TripleAlter(c.reader(),d.writer());
+			ProcessPtr alter(getProcessPtr(_alter));
+			
+	    	EventList expA;
+			
+			expA = tuple_list_of
+				(us,alter,alter) //We fork the process
+				(us,us,us) (us,NullProcessPtr,NullProcessPtr) //We yield
+				(alter,NullProcessPtr,NullProcessPtr) //They block on the channels
+			;			
+						
+			ASSERTEQ(NullProcessPtr,c.waiting,"waiting not as expected",__LINE__);
+			ASSERTEQ(static_cast<int*>(NULL),c.dest,"dest not as expected",__LINE__);						
+			
+			EventList actA;
+			{
+				RecordEvents _(&actA);
+			
+				forking.forkInThisThread(_alter);				
+							
+				CPPCSP_Yield();
+			}
+			
+			//Now enabled:
+			ASSERTEQ(expA,actA,"Events not as expected in part A",__LINE__);
+			ASSERTEQ(alter,c.waiting,"waiting not as expected",__LINE__);
+			ASSERTEQ(static_cast<int*>(NULL),c.dest,"dest not as expected",__LINE__);
+
+			WriterProcess<int>* _writer = new WriterProcess<int>(c.writer(),42,1);
+    		ProcessPtr writer(getProcessPtr(_writer));
+			
+			forking.forkInThisThread(_writer);
+			
+			CPPCSP_Yield();
+			
+			//Now the writer has been:
+			ASSERTEQ(writer,c.waiting,"waiting not as expected",__LINE__);
+			ASSERTEQ(&(_writer->t),c.src,"dest not as expected",__LINE__);			
+			
+			CPPCSP_Yield();
+			
+			//Now disabled:
+			ASSERTEQ(NullProcessPtr,c.waiting,"waiting not as expected",__LINE__);
+			ASSERTEQ(static_cast<int*>(NULL),c.dest,"dest not as expected",__LINE__);
+			
+			int n;
+			d.reader() >> n;
+			ASSERTEQ(0,n,"First guard was not selected in pri alt",__LINE__);
+		
+			END_TEST_C("Test repeated channel guards 0 (unbuffered)",c.reader().poison());
+		}
+	}
+	
+	static TestResult testRepGuard1()
+	{
+		One2OneChannel<int> c;
+
+		FIFOBuffer<int>::Factory factory(1);
+		BufferedOne2OneChannel<int> d(factory);		
+
+
+		{
+			ScopedForking forking;
+			BEGIN_TEST()
+			
+			SetUp setup;
+
+			WriterProcess<int>* _writer = new WriterProcess<int>(c.writer(),42,1);
+    		ProcessPtr writer(getProcessPtr(_writer));
+			
+			forking.forkInThisThread(_writer);
+			
+			CPPCSP_Yield();
+			
+			//The writer is waiting:
+			ASSERTEQ(writer,c.waiting,"waiting not as expected",__LINE__);
+			ASSERTEQ(&(_writer->t),c.src,"dest not as expected",__LINE__);			
+
+
+			
+			CSProcess* _alter = new TripleAlter(c.reader(),d.writer());
+			ProcessPtr alter(getProcessPtr(_alter));
+			
+	    	EventList expA;
+			
+			expA = tuple_list_of
+				(us,alter,alter) //We fork the process
+				(us,us,us) (us,NullProcessPtr,NullProcessPtr) //We yield
+				(alter,writer,writer) //They free the writer
+				(NullProcessPtr,NullProcessPtr,NullProcessPtr) //They finish
+			;			
+						
+			EventList actA;
+			{
+				RecordEvents _(&actA);
+			
+				forking.forkInThisThread(_alter);				
+							
+				CPPCSP_Yield();
+			}
+			
+			//Now finished:
+			ASSERTEQ(expA,actA,"Events not as expected in part A",__LINE__);
+			ASSERTEQ(NullProcessPtr,c.waiting,"waiting not as expected",__LINE__);
+			ASSERTEQ(static_cast<int*>(NULL),c.dest,"dest not as expected",__LINE__);
+			ASSERTEQ(static_cast<int*>(NULL),c.src,"src not as expected",__LINE__);
+
+			int n;
+			d.reader() >> n;
+			ASSERTEQ(0,n,"First guard was not selected in pri alt",__LINE__);		
+		
+			END_TEST_C("Test repeated channel guards 1 (unbuffered)",c.reader().poison());
+		}
+	}	
+	
 	template <unsigned CHANNELS,unsigned WRITERS_PER_CHANNEL, unsigned COMMS_EACH, bool KERNEL_THREADS, typename CHANNEL_FACTORY>
 	static TestResult testStressedAlt()
 	{
@@ -973,6 +1128,8 @@ public:
 		return list_of<TestResult (*) ()>
 			(testNormal0) (testNormal1) (testNormal2) (testNormal3) (testNormal4)
 			(testBuf0) (testBuf1) (testBuf2) (testBuf3) (testBuf4)			
+			
+			(testRepGuard0) (testRepGuard1)
 		;
 	}
 	

@@ -206,9 +206,19 @@ namespace csp
             channel->mutex.release();
             return true;
         } else if (channel->waiting != NULL) {
-            //Someone is ready to write
-            channel->mutex.release();
-            return true;
+        	if (channel->waiting == proc)
+        	{
+        		//This channel is being used multiple times in the alt, and clearly if we are waiting to read,
+        		//no-one is waiting to write:
+    	        channel->mutex.release();
+        		return false;
+        	}
+        	else
+        	{        
+	            //Someone is ready to write
+    	        channel->mutex.release();
+    	        return true;
+    	    }
         } else {
             //Put ourselves in the channel:
             channel->waiting = proc;
