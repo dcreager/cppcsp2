@@ -99,7 +99,11 @@ public:
 	
 	class WaitingGuard : public TestGuard
 	{
+	#ifdef CPPCSP_DARWIN
+		Condition<> cond;
+	#else
 		MutexAndEvent<OSBlockingMutex> cond;
+	#endif
 		bool waiting;
 		bool waitDuringEnable;
 	protected:
