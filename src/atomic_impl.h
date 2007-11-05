@@ -330,23 +330,23 @@ inline void* InterlockedExchangePointer(void* volatile* pointerToPointer,void* e
 	__asm__
 	(
 		"movl %2, %%eax\n\t"
-		"movl %3, %%ebx\n\t"
-		LOCK_XCHG " %%eax, (%%ebx)\n\t"
+		"movl %3, %%ecx\n\t"
+		LOCK_XCHG " %%eax, (%%ecx)\n\t"
 		"movl %%eax, %0"
 		:	"=m"(prevValue),"=m"(*(pointerToPointer))
 		:	"m"(exchange),"m"(pointerToPointer)
-		:	"%eax", "%ebx"
+		:	"%eax", "%ecx"
 	);
 #elif SIZEOF_VOIDP == 8
 	__asm__
 	(
 		"movq %2, %%rax\n\t"
-		"movq %3, %%rbx\n\t"
-		LOCK_XCHG "q %%rax, (%%rbx)\n\t"
+		"movq %3, %%rcx\n\t"
+		LOCK_XCHG "q %%rax, (%%rcx)\n\t"
 		"movq %%rax, %0"
 		:	"=m"(prevValue),"=m"(*(pointerToPointer))
 		:	"m"(exchange),"m"(pointerToPointer)
-		:	"%rax", "%rbx"
+		:	"%rax", "%rcx"
 	);
 #endif
 	return prevValue;
@@ -359,23 +359,23 @@ inline usign32 InterlockedExchange(usign32 volatile* pointerToPointer /*misnomer
 	__asm__
 	(
 		"movl %2, %%eax\n\t"
-		"movl %3, %%ebx\n\t"
-		LOCK_XCHG " %%eax, (%%ebx)\n\t"
+		"movl %3, %%ecx\n\t"
+		LOCK_XCHG " %%eax, (%%ecx)\n\t"
 		"movl %%eax, %0"
 		:	"=m"(prevValue),"=m"(*(pointerToPointer))
 		:	"m"(exchange),"m"(pointerToPointer)
-		:	"%eax", "%ebx"
+		:	"%eax", "%ecx"
 	);
 #elif SIZEOF_VOIDP == 8
 	__asm__
 	(
 		"movl %2, %%eax\n\t"
-		"movq %3, %%rbx\n\t"
-		LOCK_XCHG " %%eax, (%%rbx)\n\t"
+		"movq %3, %%rcx\n\t"
+		LOCK_XCHG " %%eax, (%%rcx)\n\t"
 		"movl %%eax, %0"
 		:	"=m"(prevValue),"=m"(*(pointerToPointer))
 		:	"m"(exchange),"m"(pointerToPointer)
-		:	"%eax", "%rbx"
+		:	"%eax", "%rcx"
 	);
 #endif
 	return prevValue;
