@@ -85,8 +85,12 @@ CPPCSP = $(lib_LIBRARIES)
 if MINGW
 LINKLIBS += -lws2_32 -lwsock32 -lwinmm
 else
+if DARWIN
+LINKLIBS += -lpthread
+else
 #Not -lpthread -- GCC has a special -pthread option.
 LINKLIBS += -pthread 
+endif
 endif
 
 libcppcsp2_a_CXXFLAGS = $(AM_CXXFLAGS) 
@@ -100,11 +104,17 @@ LINKLIBS += -lc_r
 
 else
 
+if DARWIN
+
+else
+
 if MINGW
 else
 
 #For the sched_yield function on non-BSD POSIXs:
 LINKLIBS += -lrt
+
+endif
 
 endif
 
