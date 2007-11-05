@@ -1,4 +1,4 @@
-AC_INIT([Kent C++CSP Library v2],[2.0.2],[cppcsp@twistedsquare.com],[cppcsp2])
+AC_INIT([Kent C++CSP Library v2],[2.0.3],[cppcsp@twistedsquare.com],[cppcsp2])
 AC_CANONICAL_TARGET
 AM_INIT_AUTOMAKE(dist-bzip2)
 
