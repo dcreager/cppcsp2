@@ -1,2 +1,5 @@
 4th May 2007: Version 2.0.1 released (first public release).
 
+20th August 2007: Version 2.0.2 released.
+	This release fixes some bugs relating to timeout guards in Alternatives, repeated channel guards in Alternatives, and fixes a few
+	missing function implementations as well as mistakes relating to the Run methods.
