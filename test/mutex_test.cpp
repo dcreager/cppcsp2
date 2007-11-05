@@ -548,12 +548,20 @@ public:
 	
 	static TestResult queuePerfTest0()
 	{
+	#ifdef CPPCSP_DARWIN
+		return TestResultPass("Test not applicable on this platform");
+	#else
 		return _queuePerfTest< MutexAndEvent<OSBlockingMutex> >("Queue Test - Native Mutex and Native Event");
+	#endif
 	}
 	
 	static TestResult queuePerfTest1()
 	{
+	#ifdef CPPCSP_DARWIN
+		return TestResultPass("Test not applicable on this platform");
+	#else
 		return _queuePerfTest< MutexAndEvent<PureSpinMutex> >("Queue Test - Pure-Spin Mutex and Native Event");
+	#endif
 	}
 	
 	static TestResult queuePerfTest2()
