@@ -25,11 +25,11 @@ extern bool runTests(bool incPerfTests);
 #ifdef CPPCSP_WINDOWS
 	int WINAPI WinMain(HINSTANCE,HINSTANCE,LPSTR,int)
 	{		
-		return (runTests(false) ? 0 : -1);
+		return (runTests(false) ? 0 : 1);
 	}
 #else
 	int main(int,char**)
 	{
-		return (runTests(false) ? 0 : -1);
+		return (runTests(false) ? 0 : 1);
 	}
 #endif
