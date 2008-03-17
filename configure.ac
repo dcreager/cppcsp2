@@ -2,6 +2,8 @@ AC_INIT([Kent C++CSP Library v2],[2.0.3],[cppcsp@twistedsquare.com],[cppcsp2])
 AC_CANONICAL_TARGET
 AM_INIT_AUTOMAKE(dist-bzip2)
 
+#TODO shift all these checks into a case statement
+
 OS_MINOR=CPPCSP_OS_UNKNOWN
 
 AC_MSG_CHECKING([for MinGW])
@@ -104,17 +106,15 @@ else
 	fi
 fi
 
-CPPCSP_CONFIG_H="
-#ifndef SIZEOF_VOIDP
-#define SIZEOF_VOIDP $CALC_SIZEOF_VOIDP
-#endif
+OS_TYPE="
 $OS_MAJOR
 #define $OS_MINOR
-$SCHED_TYPE
-$CONFIG_CPU_FLAGS
 "
 
-AC_SUBST(CPPCSP_CONFIG_H)
+AC_SUBST(OS_TYPE)
+AC_SUBST(CALC_SIZEOF_VOIDP)
+AC_SUBST(SCHED_TYPE)
+AC_SUBST(CONFIG_CPU_FLAGS)
 
 AC_SUBST(CPPCSP_LINK_LIBS)
 
