@@ -1,0 +1,14 @@
+prefix=@prefix@
+exec_prefix=@exec_prefix@
+libdir=@libdir@
+includedir=@includedir@
+
+Name: C++CSP2
+Description: An implementation of CSP ideas in C++
+Requires:
+Version: @VERSION@
+Libs: -L${libdir} -lcppcsp2 @CPPCSP_LINK_LIBS@
+Cflags: -I${includedir}
+URL: http://www.cppcsp.net/
+
+
