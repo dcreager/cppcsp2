@@ -1,4 +1,4 @@
-AC_INIT([Kent C++CSP Library v2],[2.0.3],[cppcsp@twistedsquare.com],[cppcsp2])
+AC_INIT([Kent C++CSP Library v2],[2.0.4],[cppcsp@twistedsquare.com],[cppcsp2])
 AC_CANONICAL_TARGET
 AM_INIT_AUTOMAKE(dist-bzip2)
 
@@ -80,7 +80,7 @@ fi
 
 CPPCSP_LINK_LIBS=""
 
-if test x`echo $OS_MINGW` = xtrue; then
+if test x$OS_MINGW = xtrue; then
 	OS_MAJOR="
 #ifndef WIN32
 #define WIN32
@@ -95,10 +95,10 @@ else
 	SCHED_TYPE="
 #define CPPCSP_LONGJMP
 "
-	if test x`echo $OS_BSD` = xtrue; then
+	if test x$OS_BSD = xtrue; then
 		CPPCSP_LINK_LIBS="-lc_r"
 	else
-		if test x`echo $OS_DARWIN` = xtrue; then
+		if test x$OS_DARWIN = xtrue; then
 			CPPCSP_LINK_LIBS="-lrt -lpthread"
 		else
 			CPPCSP_LINK_LIBS="-lrt -pthread"
@@ -119,6 +119,6 @@ AC_SUBST(PACKAGE_VERSION)
 
 AC_SUBST(CPPCSP_LINK_LIBS)
 
-AC_CONFIG_FILES(Makefile cppcsp2-2.0.pc src/cppcsp_config.h)
+AC_CONFIG_FILES(Makefile cppcsp2-2.0.pc cppcsp_config.h)
 
 AC_OUTPUT
