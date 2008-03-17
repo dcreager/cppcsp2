@@ -118,4 +118,6 @@ AC_SUBST(CPPCSP_CONFIG_H)
 
 AC_SUBST(CPPCSP_LINK_LIBS)
 
-AC_OUTPUT(Makefile cppcsp2-2.0.pc src/cppcsp_config.h)
+AC_CONFIG_FILES(Makefile cppcsp2-2.0.pc src/cppcsp_config.h)
+
+AC_OUTPUT
